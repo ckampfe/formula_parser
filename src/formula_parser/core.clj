@@ -11,9 +11,6 @@
        clojure.string/split-lines
        (map clojure.string/trim)))
 
-#_(defn char-range [start end]
-    (map (comp str char) (range (int start) (inc (int end)))))
-
 (def formula-bnf
   {:Start (alt (nt :Constant)
                (cat (hide (opt (string "="))) (nt :Formula))
@@ -37,7 +34,7 @@
                   (nt :BOOL)
                   (nt :ERROR))
 
-   :FunctionCall (ord (cat (nt :Function) (nt :Arguments) (string ")"))
+   :FunctionCall (alt (cat (nt :Function) (nt :Arguments) (hide (string ")")))
                       (cat (nt :UnOpPrefix) (nt :Formula))
                       (cat (nt :Formula) (string "%"))
                       (cat (nt :Formula) (nt :BinOp) (nt :Formula)))
@@ -51,12 +48,17 @@
    :Function (ord (nt :FUNCTION)
                   (nt :UDF))
 
+   ;; :Arguments (alt (cat (nt :Argument)
+   ;;                      (string ",")
+   ;;                      (nt :Arguments))
+   ;;                 (nt :Argument))
    :Arguments (alt (nt :Argument)
                    (cat (nt :Argument)
-                        (string ",")
-                        (nt :Arguments)))
+                        (plus (cat (hide (string ","))
+                                   (nt :Argument)))))
 
-   :Argument (alt (nt :Formula) #_Epsilon)
+   :Argument (alt (nt :Formula)
+                  Epsilon)
 
    :Reference (alt (nt :ReferenceItem)
                    (cat (nt :Reference)
@@ -75,9 +77,11 @@
                    (cat (nt :Prefix) (nt :UDF) (nt :Arguments) (hide (string ")")))
                    (nt :DynamicDataExchange))
 
-   :ReferenceItem (alt (nt :CELL)
+   :ReferenceItem (ord (nt :CELL)
                        (nt :NamedRange)
-                       (cat (nt :REFERENCE-FUNCTION) (nt :Arguments) (hide (string ")")))
+                       (cat (nt :REFERENCE-FUNCTION)
+                            (nt :Arguments)
+                            (hide (string ")")))
                        (nt :VERTICAL-RANGE)
                        (nt :HORIZONTAL-RANGE)
                        (nt :ERROR-REF))
@@ -118,13 +122,10 @@
               (string "FALSE"))
 
    ;; $? [A-Z]+ $? [0-9]+
-   :CELL (regexp "$? [A-Za-z]+ $? [0-9]+")
-
-   ;; :CELL (cat (opt (string "$"))
-   ;;            (plus (apply alt (map string (char-range \a \z))))
-   ;;            (opt (string "$"))
-   ;;            (plus (apply alt (map string (map str (range 0 10)))))
-   ;;            )
+   :CELL (cat (opt (string "$"))
+              (regexp "[A-Z]+")
+              (opt (string "$"))
+              (regexp "[0-9]+"))
 
    ;; ’ ([A-Z0-9_ !@#$%^&*()+={}:;|<>,./?\\] | ”)+ ’
    :DDECALL (string "")
@@ -177,7 +178,7 @@
 
    ;; [0-9]+ ,? [0-9]* (e [0-9]+)?
    :NUMBER (cat (regexp "[0-9]+")
-                (regexp ",?")
+                (opt (string ","))
                 (regexp "[0-9]*")
                 (opt (cat (string "e") (regexp "[0-9]+"))))
 

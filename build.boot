@@ -26,6 +26,13 @@
   (let [dir (if (seq dir) dir #{"target"})]
     (comp (aot) (pom) (uber) (jar) (target :dir dir))))
 
+
+(deftask install-local
+  []
+  (comp (pom)
+        (jar)
+        (install)))
+
 (deftask run
   "Run the project."
   [a args ARG [str] "the arguments for the application."]

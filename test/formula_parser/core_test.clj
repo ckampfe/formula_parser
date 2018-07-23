@@ -33,8 +33,16 @@
 
     (is (vector? (parse "=A1")))
 
-    (is (vector? (parse "=Cash_Flow!A1")))))
+    (is (vector? (parse "=Cash_Flow!A1")))
 
-#_(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+    (is (vector? (parse "'Schedule E'!C7")))
+
+    (is (vector? (parse "=IF(SUM(C121:C132)=(I21),SUM(C121:C132),\"Total off by \" & SUM(C121:C132)-I21)")))
+
+    (is (vector? (parse "=+Tax!B3& \" \" &Tax!B5")))
+
+    #_(parse "IF(1 & 2 & 3)")
+
+    ))
+
+

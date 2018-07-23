@@ -20,6 +20,16 @@
                       (nt :Formula)
                       (hide (string "}")))
 
+   ;; NOTE: THIS IS NOT PART OF THE GRAMMAR PAPER
+   ;; NOTE: it is also disgusting
+   :FormulaWithJoin (cat (neg (nt :FormulaWithJoin))
+                         (nt :Formula)
+                         (plus (cat (hide (cat (star (string " "))
+                                               (string "&")
+                                               (star (string " "))))
+                                    (neg (nt :FormulaWithJoin))
+                                    (nt :Formula))))
+
    :Formula (alt (nt :Constant)
                  (nt :Reference)
                  (nt :FunctionCall)
@@ -27,6 +37,7 @@
                       (nt :Formula)
                       (hide (string ")")))
                  (nt :ConstantArray)
+                 (nt :FormulaWithJoin)  ;; NOTE: THIS IS NOT PART OF THE GRAMMAR PAPER
                  (nt :RESERVED-NAME))
 
    :Constant (alt (nt :NUMBER)
@@ -62,7 +73,7 @@
 
    :Reference (alt (nt :ReferenceItem)
                    (cat (nt :Reference)
-                        (string ":")
+                        (hide (string ":"))
                         (nt :Reference))
                    (cat (nt :Reference)
                         (string " ")
@@ -156,7 +167,7 @@
    ;; [A-Z0-9]+ : ([A-Z0-9_.]+ | ’ ([A-Z0-9_ !^&*()+={}:;|<>,./?\\] | ”)+ ’) !
    :MULTIPLE-SHEETS
    (let [initial (regexp "[A-Za-z0-9]+")
-         colon (string ":")
+         colon (hide (string ":"))
          single-quote (string "'")
          double-quote (string "\"")
          bang (string "!")
@@ -186,7 +197,6 @@
    :QUOTED-FILE-SHEET (let [big-regexp
                             (regexp #"([0-9A-Za-z_ \\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\+\\=\\|\\:\\;\\<\\>\\,\\.\\?\\\\\\\"])+")]
 
-                        big-regexp
                         (cat (hide (string "'["))
                              (regexp "[0-9]+")
                              (hide (string "]"))
@@ -204,21 +214,19 @@
                        (regexp "[A-Za-z_]+"))
 
    ;; ([0-9A-Z_.]+ | ’ ([0-9A-Z_ !@#$%^&*()+=|:;<>,./?\\] | ”)+ ’) !
-   :SHEET (let [big-regexp (alt (regexp "0-9A-Za-z_ ")
-                                (->> (clojure.string/split "!@#$%^&*()+=|:;<>,./?\\" #"")
-                                     (map string)
-                                     (apply alt)))]
+   :SHEET (let [big-regexp (regexp #"([0-9A-Za-z_\ \\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\+\\=\\|\\:\\;\\<\\>\\,\\.\\?\\\\\\\"])+")
+                single-quote (string "'")]
 
             (cat (alt (regexp "[0-9A-Za-z_.]+")
-                      (cat (string "'")
+                      (cat (hide single-quote)
                            (plus (alt big-regexp
                                       (string "\"")))
-                           (string "'")))
+                           (hide single-quote)))
                  (string "!")))
 
    ;; " ([^ "]|"")* "
    :STRING (cat (hide (string "\""))
-                (regexp "([^ \"])*")
+                (regexp "([^\"])*|\"\"")
                 (hide (string "\"")))
 
    ;; (_xll\.)? [A-Z0-9]+ (
@@ -255,8 +263,6 @@
 
 ;; quoted file sheet
 (clojure.pprint/pprint (ip/parse formula-parser "=('[2]Detail I&E'!D62)/1000"))
-
-
 
 ;; udf
 (ip/parse formula-parser "=[1]!wbname()")

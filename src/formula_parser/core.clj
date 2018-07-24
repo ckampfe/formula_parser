@@ -12,8 +12,10 @@
        (map clojure.string/trim)))
 
 (def formula-bnf
-  {:Start (alt (nt :Constant)
-               (cat (hide (opt (string "="))) (nt :Formula))
+  {:Start (alt (cat (star (string " ")) (nt :Constant) (star (string " ")))
+               (cat (hide (opt (string "=")))
+                    (hide (star (string " ")))
+                    (nt :Formula))
                (nt :ArrayFormula))
 
    :ArrayFormula (cat (hide (string "{="))
@@ -34,7 +36,9 @@
                  (nt :Reference)
                  (nt :FunctionCall)
                  (cat (hide (string "("))
+                      (hide (star (string " ")))
                       (nt :Formula)
+                      (hide (star (string " ")))
                       (hide (string ")")))
                  (nt :ConstantArray)
                  (nt :FormulaWithJoin)  ;; NOTE: THIS IS NOT PART OF THE GRAMMAR PAPER
@@ -53,22 +57,23 @@
    :UnOpPrefix (alt (string "+") (string "-"))
 
    :BinOp (->> ["+" "-" "*" "/" "^" "<" ">" "=" "<=" ">=" "<>"]
-               (map string)
+               (map (fn [s] (cat (hide (star (string " ")))
+                                 (string s)
+                                 (hide (star (string " "))))))
                (apply alt))
 
    :Function (ord (nt :FUNCTION)
                   (nt :UDF))
 
-   ;; :Arguments (alt (cat (nt :Argument)
-   ;;                      (string ",")
-   ;;                      (nt :Arguments))
-   ;;                 (nt :Argument))
    :Arguments (alt (nt :Argument)
                    (cat (nt :Argument)
                         (plus (cat (hide (string ","))
                                    (nt :Argument)))))
 
-   :Argument (alt (nt :Formula)
+   :Argument (alt (cat (star (string " "))
+                       (nt :Formula)
+                       (star (string " "))
+                       )
                   Epsilon)
 
    :Reference (alt (nt :ReferenceItem)
@@ -139,7 +144,10 @@
               (regexp "[0-9]+"))
 
    ;; ’ ([A-Z0-9_ !@#$%^&*()+={}:;|<>,./?\\] | ”)+ ’
-   :DDECALL (string "")
+   :DDECALL (cat (string "'")
+                 (alt (regexp "[A-Z0-9_ \\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\+\\=\\{\\}\\:\\;\\|\\<\\>\\,\\.\\/\\?\\\\]+")
+                      (string "\""))
+                 (string "'"))
 
    ;; #NULL! | #DIV/0! | #VALUE! | #NAME? | #NUM! | #N/A
    :ERROR (alt (string "#NULL!")
@@ -153,9 +161,9 @@
    :ERROR-REF (string "#REF!")
 
    ;; \[ [0-9]+ \]
-   :FILE (cat (string "[")
+   :FILE (cat (hide (string "["))
               (regexp "[0-9]+")
-              (string "]"))
+              (hide (string "]")))
 
    ;; (Any entry from the function list1) \(
    :FUNCTION (cat (apply alt (map string function-list))
@@ -182,20 +190,25 @@
           bang))
 
    ;; [A-Z_][A-Z0-9_.]*
-   :NAMED-RANGE (regexp "[A-Z_][A-Z0-9_.]*")
+   :NAMED-RANGE (regexp "[A-Za-z_][A-Za-z0-9_.]*")
 
    ;; (TRUE | FALSE | [A-Z]+[0-9]+) [A-Z0-9_.]+
-   :NAMED-RANGE-PREFIXED (string "");; [0-9]+ ,? [0-9]* (e [0-9]+)?
+   :NAMED-RANGE-PREFIXED (cat (alt (string "TRUE")
+                                   (string "FALSE")
+                                   (cat (regexp "[A-Za-z]+")
+                                        (regexp "[0-9]+")))
+                              (regexp "[A-Za-z0-9_\\.]+"))
 
    ;; [0-9]+ ,? [0-9]* (e [0-9]+)?
    :NUMBER (cat (regexp "[0-9]+")
-                (opt (string ","))
+                (opt (alt (string ",")
+                          (string ".")))
                 (regexp "[0-9]*")
                 (opt (cat (string "e") (regexp "[0-9]+"))))
 
    ;; ’\[ [0-9]+ \] ([0-9A-Z_ !@#$%^&*()+={}:;|<>,./?\\] | ”)+ ’!
    :QUOTED-FILE-SHEET (let [big-regexp
-                            (regexp #"([0-9A-Za-z_ \\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\+\\=\\|\\:\\;\\<\\>\\,\\.\\?\\\\\\\"])+")]
+                            (regexp #"([0-9A-Za-z_\- \\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\+\\=\\|\\:\\;\\<\\>\\,\\.\\?\\\\\\\"])+")]
 
                         (cat (hide (string "'["))
                              (regexp "[0-9]+")
@@ -214,10 +227,10 @@
                        (regexp "[A-Za-z_]+"))
 
    ;; ([0-9A-Z_.]+ | ’ ([0-9A-Z_ !@#$%^&*()+=|:;<>,./?\\] | ”)+ ’) !
-   :SHEET (let [big-regexp (regexp #"([0-9A-Za-z_\ \\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\+\\=\\|\\:\\;\\<\\>\\,\\.\\?\\\\\\\"])+")
+   :SHEET (let [big-regexp (regexp #"([0-9A-Za-z_\-\ \\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\+\\=\\|\\:\\;\\<\\>\\,\\.\\?\\\\\\\"])+")
                 single-quote (string "'")]
 
-            (cat (alt (regexp "[0-9A-Za-z_.]+")
+            (cat (alt (regexp "[0-9A-Za-z_\\.]+")
                       (cat (hide single-quote)
                            (plus (alt big-regexp
                                       (string "\"")))

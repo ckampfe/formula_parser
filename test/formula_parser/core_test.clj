@@ -1,6 +1,7 @@
 (ns formula-parser.core-test
   (:require [clojure.test :refer :all]
-            [formula-parser.core :refer :all]))
+            [formula-parser.core :refer :all]
+            [clojure.java.io :as io]))
 
 (deftest some-examples
 
@@ -41,8 +42,45 @@
 
     (is (vector? (parse "=+Tax!B3& \" \" &Tax!B5")))
 
-    #_(parse "IF(1 & 2 & 3)")
+    (is (vector? (parse "=A21+1")))
+
+    (is (vector? (parse "=A21 + 1")))
+
+    (is (vector? (parse "SUM(IF((DelPoint= \"PV\"), 1, 2))")))
+
+    (is (vector? (parse "=D106*0.01")))
+
+    (is (vector? (parse "[1]!'NGH1,PRIM ACT 1'")))
+
+    (is (vector? (parse "(YEAR(I14)-YEAR(C4))*12+MONTH(I14)-MONTH(C4)+IF(MONTH(I14)-MONTH(C4)>=0, IF((DAY(I14)-DAY(C4))>25, 1,( IF(DAY(I14)-DAY(C4)<-5, -1,0))), IF((DAY(I14)-DAY(C4))>25, 1, IF((DAY(I14)-DAY(C4))<-25, -1,0)))")))
+
+    (is (vector? (parse "'[6]HYDRO-EBITDA'!I$1")))
+
 
     ))
 
+(defmacro build-that-enron-shit []
+  (let [enron (io/reader "enronformulas.txt")
+        line-groups (->> enron
+                         line-seq
+                         (map (fn [line]
+                                 (-> line
+                                     (subs 1 (- (count line) 1))
+                                     (clojure.string/replace #"\"\"" "\""))))
+                         (partition-all 300)
+                         #_(drop 160)
+                         #_(take 10)
+                         (take 160)
+                         )]
+    `(do
+
+       ~@(for [[line-group# i#] (map (fn [lg i] [lg i])
+                                     line-groups
+                                     (range))]
+           `(deftest ~(symbol (str "enron-formulas-" i#))
+              (testing ~(str "it does it " i#)
+                ~@(for [line# line-group#]
+                    `(is (vector? (parse ~line#))))))))))
+
+(build-that-enron-shit)
 
